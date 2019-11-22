@@ -33,6 +33,7 @@
  *********************************************************************/
 
 /* Author: Ioan Sucan */
+/* Modified: Gabriel Koenig, BIROMED-Lab, gabriel.koenig@unibas.ch */
 
 #include <boost/algorithm/string/trim.hpp>
 
@@ -557,6 +558,15 @@ void ompl_interface::ModelBasedPlanningContext::postSolve()
   int v = ompl_simple_setup_->getSpaceInformation()->getMotionValidator()->getValidMotionCount();
   int iv = ompl_simple_setup_->getSpaceInformation()->getMotionValidator()->getInvalidMotionCount();
   ROS_DEBUG_NAMED("model_based_planning_context", "There were %d valid motions and %d invalid motions.", v, iv);
+
+  // Added by Gabriel Koenig
+  // use the OMPL data storage functionality to store all the sampled states in graphml and binary format
+  // IMPORTANT: the data is only properly stored, if no parallel plan is used (at the moment)
+  ob::PlannerData ompl_data_(ompl_simple_setup_->getSpaceInformation());
+  ompl_simple_setup_->getPlannerData(ompl_data_);
+  ob::PlannerDataStorage ompl_data_storage_;
+  ompl_data_storage_.store(ompl_data_,"sampled_states");
+  ROS_DEBUG_NAMED("model_based_planning_context", "GK:All sampled Data is stored");
 
   if (ompl_simple_setup_->getProblemDefinition()->hasApproximateSolution())
     ROS_WARN_NAMED("model_based_planning_context", "Computed solution is approximate");

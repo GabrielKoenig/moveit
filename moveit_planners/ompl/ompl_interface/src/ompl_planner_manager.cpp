@@ -33,6 +33,7 @@
  *********************************************************************/
 
 /* Author: Ioan Sucan, Dave Coleman */
+/* Modified: Gabriel Koenig, BIROMED-Lab, gabriel.koenig@unibas.ch */
 
 #include <moveit/ompl_interface/ompl_interface.h>
 #include <moveit/planning_interface/planning_interface.h>
@@ -149,7 +150,122 @@ public:
   {
     return ompl_interface_->getPlanningContext(planning_scene, req, error_code);
   }
+  
+  // Added visualization function for sampled states by Gabriel Koenig
+  void visualizeSampledStates(const planning_scene::PlanningSceneConstPtr& planning_scene,
+                              const std::string& PLANNING_GROUP,
+                              const std::string& LINK_NAME,
+                              const std::string& REFERENCE_FRAME,
+                              const std::string& state_space_model,
+                              const char *filename_to_load)  override
+  {
+    // get current planning context for the specified Planning Group
+    ompl_interface::ModelBasedPlanningContextPtr temp_planning_context = ompl_interface_->getPlanningContext(PLANNING_GROUP, state_space_model) ;
+  
+    // recreating the space information from the stored planner data instance
+    ompl::base::PlannerData sampledData(temp_planning_context->getOMPLSimpleSetup()->getSpaceInformation());
+    
+    // load the data from binary file and store it as a PlannerData
+    ompl::base::PlannerDataStorage stored_sampled_Data;
+    stored_sampled_Data.load(filename_to_load, sampledData);
+  
+    //get planning scene
+    robot_state::RobotState robot_state=planning_scene->getCurrentState();
+    ROS_INFO("GK: planning frame %s", planning_scene->getPlanningFrame().c_str());
+  
+    // Create the message publisher and advertise,
+    ros::Publisher mark_sample = nh_.advertise<visualization_msgs::MarkerArray>("/rviz_visual_tools", 5);
+  
+    visualization_msgs::MarkerArray arr;
+    
+    std_msgs::ColorRGBA color_v;
 
+    const ompl::base::State* state;
+  
+    unsigned int numV = sampledData.numVertices();
+    unsigned int numE = sampledData.numEdges();
+    ROS_INFO("Inside data visualizing tool: total number of vertices to be displaced: %i \n",numV);
+    
+    for (unsigned int i = 0 ; i < numV ; ++i) {
+      
+      // each vertex of the graph contains the complete state of the robot, this state needs to be converted into an Movit robot state
+      temp_planning_context->getOMPLStateSpace()->copyToRobotState(robot_state, sampledData.getVertex(i).getState());
+
+      // the translational (position) component of the desired link is the one we are interested
+      const Eigen::Isometry3d &end_effector_state = robot_state.getGlobalLinkTransform(LINK_NAME);
+      const Eigen::Vector3d& position=end_effector_state.translation();
+      
+      geometry_msgs::Point p_vi;
+      p_vi.x=position.x();
+      p_vi.y=position.y();
+      p_vi.z=position.z();
+      
+      // for each vertex check also each edge which is going out of this vertex
+      int edgeList_size=0;
+      std::vector<unsigned int> edgeList;
+      edgeList_size=sampledData.getEdges(i,edgeList);
+      ROS_DEBUG_NAMED("GK","GK:ompl_planner_manager %d number of edges for vertex %d", edgeList_size, i);
+        for (int j = 0; j < edgeList_size; j++){
+        visualization_msgs::Marker line_list;
+        line_list.header.stamp= ros::Time();
+        line_list.header.frame_id=REFERENCE_FRAME;
+        line_list.ns="created edges";
+        line_list.id=i;
+        line_list.type=visualization_msgs::Marker::LINE_LIST;
+        line_list.action=visualization_msgs::Marker::ADD;
+        line_list.scale.x=0.0008;
+        line_list.points.push_back(p_vi);
+        line_list.color.r = 1.0;
+        line_list.color.a = 1.0;
+        geometry_msgs::Point p_vj;
+
+        // each vertex of the graph contains the complete state of the robot, this state needs to be converted into an Movit robot state
+        temp_planning_context->getOMPLStateSpace()->copyToRobotState(robot_state, sampledData.getVertex(edgeList[j]).getState());
+
+        // the translational (position) component of the desired link is the one we are interested
+        const Eigen::Isometry3d &end_effector_state = robot_state.getGlobalLinkTransform(LINK_NAME);
+        const Eigen::Vector3d& connected_vertex=end_effector_state.translation();
+
+        p_vj.x=connected_vertex.x();
+        p_vj.y=connected_vertex.y();
+        p_vj.z=connected_vertex.z();
+        line_list.points.push_back(p_vj);
+        arr.markers.push_back(line_list);
+
+        ROS_DEBUG_NAMED("GK","GK pose for connected vertex number %d towards pose: x:%.5f, y: %.5f, z:%.5f", i, connected_vertex.x(),connected_vertex.y(), connected_vertex.z());
+
+        }
+      
+      color_v.r = 0.0f;
+      color_v.g = 0.8f;
+      color_v.b = 0.0f;
+      color_v.a = 1.0f;
+
+      // fill in a new visualization message (MarkerArray)
+      visualization_msgs::Marker mk;
+      mk.header.stamp = ros::Time();
+      mk.header.frame_id = REFERENCE_FRAME;//planning_scene->getPlanningFrame()";
+      mk.ns = "sampled vertex";
+      mk.id = i;
+      mk.type = visualization_msgs::Marker::SPHERE;
+      mk.action = visualization_msgs::Marker::ADD;
+      mk.pose.position.x = position.x();
+      mk.pose.position.y = position.y();
+      mk.pose.position.z = position.z();
+      mk.pose.orientation.w = 1.0;
+      mk.scale.x = mk.scale.y = mk.scale.z = 0.008;
+      mk.color = color_v;
+      mk.lifetime = ros::Duration();
+      arr.markers.push_back(mk);
+
+      ROS_DEBUG("GK pose for vertex number %d with pose: x:%.5f, y: %.5f, z:%.5f", i, position.x(),position.y(), position.z());
+
+    }
+    // publish message to visualize the sampled states
+    mark_sample.publish(arr);
+    
+    ROS_INFO("OMPL Planner Manager: finished visualizing sampled position");
+  };
 private:
   /*
   bool r = ompl_interface_->solve(planning_scene, req, res);
@@ -235,6 +351,7 @@ private:
       for (unsigned int i = 0 ; i < nv ; ++i)
       {
         pc->getOMPLStateSpace()->copyToRobotState(robot_state, pd.getVertex(i).getState());
+
         robot_state.getJointStateGroup(pc->getJointModelGroupName())->updateLinkTransforms();
         const Eigen::Vector3d &pos = robot_state.getLinkState(link_name)->getGlobalLinkTransform().translation();
 
@@ -257,7 +374,7 @@ private:
       pub_markers_.publish(arr);
     }
   }
-  */
+*/
 
   void dynamicReconfigureCallback(OMPLDynamicReconfigureConfig& config, uint32_t level)
   {

@@ -33,6 +33,7 @@
  *********************************************************************/
 
 /* Author: Ioan Sucan */
+/* Modified: Gabriel Koenig, BIROMED-Lab, gabriel.koenig@unibas.ch */
 
 #ifndef MOVEIT_PLANNING_INTERFACE_PLANNING_INTERFACE_
 #define MOVEIT_PLANNING_INTERFACE_PLANNING_INTERFACE_
@@ -202,6 +203,14 @@ public:
 
   /// \brief Request termination, if a solve() function is currently computing plans
   void terminate() const;
+
+  /// \brief Added by Gabriel Koenig: visualize robot sampled states and access them through the motion planning api
+  virtual void visualizeSampledStates(const planning_scene::PlanningSceneConstPtr& planning_scene,
+                                      const std::string& PLANNING_GROUP,
+                                      const std::string& LINK_NAME,
+                                      const std::string& REFERENCE_FRAME,
+                                      const std::string& state_space_model,
+                                      const char *filename_to_load) ;
 
 protected:
   /** \brief All the existing planning configurations. The name

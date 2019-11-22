@@ -33,6 +33,7 @@
  *********************************************************************/
 
 /* Author: Ioan Sucan */
+/* Modified: Gabriel Koenig, BIROMED-Lab, gabriel.koenig@unibas.ch */
 
 #include <moveit/planning_interface/planning_interface.h>
 #include <boost/thread/mutex.hpp>
@@ -127,4 +128,14 @@ void PlannerManager::terminate() const
     (*it)->terminate();
 }
 
+// Added by Gabriel Koenig to visualize sampled states
+void PlannerManager::visualizeSampledStates(const planning_scene::PlanningSceneConstPtr& planning_scene,
+                                            const std::string& PLANNING_GROUP,
+                                            const std::string& LINK_NAME,
+                                            const std::string& REFERENCE_FRAME,
+                                            const std::string& state_space_model,
+                                            const char *filename_to_load)
+{
+ // nothin by default, at the moment only implemented for the OMPL planner;
+}
 }  // end of namespace planning_interface

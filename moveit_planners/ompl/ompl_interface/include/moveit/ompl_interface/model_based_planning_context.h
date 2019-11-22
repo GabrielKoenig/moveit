@@ -33,6 +33,7 @@
 *********************************************************************/
 
 /* Author: Ioan Sucan */
+/* Modified: Gabriel Koenig, BIROMED-Lab, gabriel.koenig@unibas.ch */
 
 #ifndef MOVEIT_OMPL_INTERFACE_MODEL_BASED_PLANNING_CONTEXT_
 #define MOVEIT_OMPL_INTERFACE_MODEL_BASED_PLANNING_CONTEXT_
@@ -46,6 +47,9 @@
 #include <ompl/tools/benchmark/Benchmark.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
 #include <ompl/base/StateStorage.h>
+// Added by Gabriel Koenig to add Data Storage capabilities
+#include <ompl/base/PlannerData.h>
+#include <ompl/base/PlannerDataStorage.h>
 
 namespace ompl_interface
 {
